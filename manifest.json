@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "detour — hide US layovers",
+  "version": "0.1.0",
+  "description": "Hides flight itineraries that connect through the US or its territories on Google Flights and Skyscanner.",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "detour"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.google.com/travel/flights*",
+        "https://www.google.ca/travel/flights*",
+        "https://www.google.co.uk/travel/flights*",
+        "https://www.skyscanner.com/transport/flights/*",
+        "https://www.skyscanner.ca/transport/flights/*",
+        "https://www.skyscanner.net/transport/flights/*",
+        "https://www.skyscanner.co.uk/transport/flights/*"
+      ],
+      "js": ["src/us-airports.js", "src/core.js", "src/sites.js", "src/content.js"],
+      "css": ["src/detour.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
