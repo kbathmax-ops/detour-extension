@@ -19,6 +19,34 @@ const DETOUR_MARK = "data-detour-checked";
 /** All-caps three-letter tokens. Case matters: prose renders "day"/"new". */
 const CODE_RE = /\b[A-Z]{3}\b/g;
 
+/**
+ * A price, in either form these sites use: a symbol ("$1,914") or an ISO
+ * currency code ("PEN 1,914"). Google picks the form from the viewer's region,
+ * so the code form is not an edge case — a Peru-region session renders every
+ * price that way, and a symbol-only match detects zero rows on the whole page.
+ */
+const DETOUR_PRICE_RE = /[$£€¥₹₩][ \u00a0]?[\d,]{2,}|\b[A-Z]{3}[ \u00a0]?[\d,]{3,}/;
+
+/**
+ * A three-letter code acting as a currency: one immediately followed by a
+ * number. These must be stripped before judging layovers, because 19 ISO
+ * currency codes are also US IATA codes — HNL (Honduran lempira / Honolulu),
+ * PLN (Polish zloty), BRL, CNY, DKK, CLP among them. Left in, the currency
+ * token reads as a US layover on *every* row, and the extension hides the
+ * entire results page for anyone browsing in those currencies.
+ */
+// The separator is a literal space, never \s: innerText joins fields with
+// newlines, so \s would read "...min DFW\n380 kg CO2e" as the price "DFW 380"
+// and strip a real layover.
+const DETOUR_PRICE_CODE_RE = /\b([A-Z]{3})[ \u00a0]?[\d][\d,.]*/g;
+
+/** Codes that are functioning as currency labels in this row, not airports. */
+function detourCurrencyCodesIn(text) {
+  const out = new Set();
+  for (const m of text.matchAll(DETOUR_PRICE_CODE_RE)) out.add(m[1]);
+  return out;
+}
+
 /** "YYZ–CAI", "YYZ-CAI", "YYZ — CAI" — the endpoint pair on a result row. */
 const ROUTE_PAIR_RE = /\b([A-Z]{3})\s*[–—-]\s*([A-Z]{3})\b/;
 
@@ -42,6 +70,7 @@ function detourJudgeRow(text, endpointsHint) {
 
   const codes = detourCodesIn(text);
   for (const e of endpoints) codes.delete(e);
+  for (const c of detourCurrencyCodesIn(text)) codes.delete(c);
 
   const layovers = [...codes];
   if (!layovers.length) {
@@ -60,7 +89,7 @@ function detourJudgeRow(text, endpointsHint) {
 function detourLooksLikeResult(el) {
   const t = el.innerText || "";
   if (t.length < 20 || t.length > 600) return false;
-  const hasPrice = /[$£€]\s?[\d,]{2,}/.test(t);
+  const hasPrice = DETOUR_PRICE_RE.test(t);
   const hasStops = /\bstops?\b|\bnonstop\b|\bdirect\b/i.test(t);
   return hasPrice && hasStops;
 }

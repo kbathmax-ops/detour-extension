@@ -33,6 +33,25 @@ is positively identified. No endpoints found, no codes found, an unparseable
 row — all stay on screen. Showing a US itinerary is a visible annoyance you can
 catch yourself; silently hiding a valid non-US one is invisible and worse.
 
+## Prices, and why they matter
+
+A row is recognised as a result partly by containing a price. Google renders
+that price in the viewer's regional format — `$1,914` in some sessions,
+`PEN 1,914` in others — so the detector accepts both a currency **symbol** and a
+three-letter currency **code**.
+
+Accepting the code form creates a trap. Nineteen ISO 4217 codes are also US IATA
+codes: **HNL** (Honduran lempira / Honolulu), **PLN** (Polish zloty), plus BBD,
+BIF, BRL, CLP, CNY, DKK, ETB, HUF, LRD, MYR, RWF, SBD, SLE, SZL, TOP, TTD, WST.
+Left unhandled, the currency token on every row reads as a US layover and the
+extension hides the entire page. So any three-letter code *immediately followed
+by a number* is stripped before layovers are judged — that's a price, not an
+airport.
+
+The separator there is a literal space, never `\s`. `innerText` joins fields
+with newlines, and `\s` would read `...11 hr 11 min DFW\n380 kg CO2e` as the
+price `DFW 380` and strip a real layover.
+
 ## Airport data
 
 `src/us-airports.js` — 1,271 IATA codes on US soil, generated from
@@ -50,6 +69,10 @@ avoided by matching **all-caps** tokens only, since prose renders "day"/"new".
 **Google Flights — verified end to end.** Tested against live results on
 YYZ→LIM: 22 rows judged, 9 hidden via DTW, ATL, CLT, MIA and EWR, zero false
 positives, and the reveal toggle cycles 9 → 0 → 9 with stable counts.
+
+A later YVR→MEX session in PEN detected nothing at all — the price regex only
+knew `$£€`. Fixed, with `test/detect.test.mjs` covering that page's rows, the
+symbol-price regression, and all nineteen currency/airport collisions.
 
 **Skyscanner — implemented, unverified.** Skyscanner serves automated browsers a
 shell that never hydrates, so its row format could not be inspected from here. It
@@ -80,4 +103,5 @@ src/sites.js           per-site adapters (row lookup, endpoint fallback)
 src/content.js         bootstrap, badge, observer
 src/detour.css         hidden-row rule and badge styling
 popup.html/js          on/off switch
+test/detect.test.mjs   detection + judgement tests (node test/detect.test.mjs)
 ```
