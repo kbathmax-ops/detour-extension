@@ -3,10 +3,24 @@
   "name": "detour — hide US layovers",
   "version": "0.1.0",
   "description": "Hides flight itineraries that connect through the US or its territories on Google Flights and Skyscanner.",
-  "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "detour"
+    "default_title": "detour",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
@@ -19,8 +33,15 @@
         "https://www.skyscanner.net/transport/flights/*",
         "https://www.skyscanner.co.uk/transport/flights/*"
       ],
-      "js": ["src/us-airports.js", "src/core.js", "src/sites.js", "src/content.js"],
-      "css": ["src/detour.css"],
+      "js": [
+        "src/us-airports.js",
+        "src/core.js",
+        "src/sites.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/detour.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }

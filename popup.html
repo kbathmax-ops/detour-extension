@@ -3,12 +3,12 @@
 <style>
   body { width: 250px; margin: 0; padding: 14px; background: #f2ecdd; color: #1b1710;
          font: 13px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  h1 { margin: 0 0 2px; font-size: 16px; letter-spacing: -.3px; }
+  .wordmark { display: block; width: calc(100% + 28px); margin: -14px -14px 10px; }
   p  { margin: 0 0 12px; color: #6d654f; font-size: 12px; }
   label { display: flex; align-items: center; gap: 9px; font-weight: 700; cursor: pointer; }
   .note { margin-top: 12px; font-size: 11px; color: #6d654f; border-top: 1px solid rgba(27,23,16,.18); padding-top: 9px; }
 </style>
-<h1>detour</h1>
+<img class="wordmark" src="icons/wordmark-512.png" alt="detour">
 <p>Hides itineraries that connect through the US or its territories.</p>
 <label><input type="checkbox" id="enabled" checked> Skip US layovers</label>
 <div class="note">Works on Google Flights and Skyscanner. Anything it can't read with confidence is left visible.</div>
