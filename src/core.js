@@ -85,13 +85,48 @@ function detourJudgeRow(text, endpointsHint) {
     : { verdict: "keep", layovers, usCodes: [] };
 }
 
+/** Rows say how many stops they have. Nonstop counts — it still needs judging. */
+const DETOUR_STOPS_RE = /\bstops?\b|\bnonstop\b|\bdirect\b/i;
+
 /** Does this element read like a single flight result? */
 function detourLooksLikeResult(el) {
   const t = el.innerText || "";
   if (t.length < 20 || t.length > 600) return false;
-  const hasPrice = DETOUR_PRICE_RE.test(t);
-  const hasStops = /\bstops?\b|\bnonstop\b|\bdirect\b/i.test(t);
-  return hasPrice && hasStops;
+  return DETOUR_PRICE_RE.test(t) && DETOUR_STOPS_RE.test(t);
+}
+
+/**
+ * Find result rows under a broad selector without paying for it.
+ *
+ * The tag a row is built from is not stable: Google renders the first leg as
+ * <li> and other lists (the return leg, after an outbound is chosen) as plain
+ * divs, which is why an li-only lookup reports "no results detected yet" on
+ * half the funnel. So the selector has to be wide.
+ *
+ * Wide is expensive, though: detourLooksLikeResult reads innerText, and
+ * innerText forces layout, so calling it on every div on the page would be slow.
+ * textContent needs no layout, so it prefilters first and only survivors are
+ * measured properly.
+ *
+ * The prefilter matches on LOOSE patterns, never the strict ones. textContent
+ * concatenates fields with no separator -- "1 stop" followed by "11 hr" becomes
+ * "1 stop11 hr" -- which destroys the word boundaries \b depends on, so the
+ * strict regexes reject real rows here. A prefilter that drops a genuine row is
+ * invisible and unfixable downstream; one that lets extra rows through just
+ * costs an innerText read that the strict check then rejects. So it errs wide.
+ */
+const DETOUR_STOPS_LOOSE_RE = /stop|nonstop|direct/i;
+const DETOUR_PRICE_LOOSE_RE = /[$£€¥₹₩]\s?\d|[A-Z]{3}\s?\d/;
+
+function detourCandidates(selector) {
+  const out = [];
+  for (const el of document.querySelectorAll(selector)) {
+    const t = el.textContent || "";
+    if (t.length < 20 || t.length > 1200) continue;
+    if (!DETOUR_STOPS_LOOSE_RE.test(t) || !DETOUR_PRICE_LOOSE_RE.test(t)) continue;
+    out.push(el);
+  }
+  return out.filter(detourLooksLikeResult);
 }
 
 /**
@@ -116,6 +151,10 @@ const DETOUR_US_ATTR = "data-detour-us";
 function detourScan(site) {
   const fresh = site.findRows().filter((el) => !el.hasAttribute(DETOUR_MARK));
   for (const row of detourInnermost(fresh)) {
+    // detourInnermost only dedupes within this batch. A container wrapping rows
+    // judged on an earlier pass has no unjudged sibling to lose to, so it would
+    // be marked as a row itself and inflate the badge's count.
+    if (row.querySelector(`[${DETOUR_MARK}]`)) continue;
     const { verdict, usCodes } = detourJudgeRow(row.innerText || "", site.endpointsHint());
     row.setAttribute(DETOUR_MARK, verdict);
     if (usCodes && usCodes.length) row.setAttribute(DETOUR_US_ATTR, usCodes.join(","));

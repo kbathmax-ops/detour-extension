@@ -7,9 +7,14 @@
   p  { margin: 0 0 12px; color: #6d654f; font-size: 12px; }
   label { display: flex; align-items: center; gap: 9px; font-weight: 700; cursor: pointer; }
   .note { margin-top: 12px; font-size: 11px; color: #6d654f; border-top: 1px solid rgba(27,23,16,.18); padding-top: 9px; }
+  .support { display: flex; align-items: center; justify-content: center; gap: 6px;
+             margin-top: 10px; padding: 8px 10px; border-radius: 8px; text-decoration: none;
+             background: #2e246b; color: #fff; font-size: 12px; font-weight: 700; }
+  .support:hover { background: #3a2e86; }
 </style>
 <img class="wordmark" src="icons/wordmark-512.png" alt="detour">
 <p>Hides itineraries that connect through the US or its territories.</p>
 <label><input type="checkbox" id="enabled" checked> Skip US layovers</label>
 <div class="note">Works on Google Flights and Skyscanner. Anything it can't read with confidence is left visible.</div>
+<a class="support" id="support" href="#" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
 <script src="popup.js"></script>

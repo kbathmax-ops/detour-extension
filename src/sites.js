@@ -13,7 +13,10 @@ const DETOUR_SITE_GOOGLE = {
   test: () =>
     /(^|\.)google\.[a-z.]+$/.test(location.hostname) &&
     location.pathname.startsWith("/travel/flights"),
-  findRows: () => [...document.querySelectorAll("li")].filter(detourLooksLikeResult),
+  // Not li-only: the first-leg list is <li>, but the return-leg list Google
+  // renders after an outbound is chosen is not, and an li-only lookup finds
+  // nothing there. detourInnermost keeps a wrapper from being hidden as a row.
+  findRows: () => detourCandidates('li, [role="listitem"], article, div'),
   // Google ships two row formats: one writes "YYZ–LIM", the other "YYZToronto
   // Pearson". Rows in the second form state no pair, so fall back to the pair
   // found anywhere on the page — every row shares the one searched route.
@@ -33,8 +36,7 @@ const DETOUR_SITE_SKYSCANNER = {
   test: () =>
     /(^|\.)skyscanner\.[a-z.]+$/.test(location.hostname) &&
     location.pathname.includes("/transport/flights/"),
-  findRows: () =>
-    [...document.querySelectorAll("li, article, section, div")].filter(detourLooksLikeResult),
+  findRows: () => detourCandidates('li, [role="listitem"], article, section, div'),
   endpointsHint: () => {
     const m = location.pathname.match(/\/transport\/flights\/([a-z0-9]{3})\/([a-z0-9]{3})\//i);
     return m ? [m[1].toUpperCase(), m[2].toUpperCase()] : detourPageRoute();

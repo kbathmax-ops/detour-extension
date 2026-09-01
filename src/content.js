@@ -12,10 +12,36 @@ const DETOUR_STATE = { enabled: true, reveal: false, last: { scanned: 0, hidden:
 const site = detourActiveSite();
 
 /* ---------------------------------------------------------------- *
+ * Instance token — newest copy wins
+ *
+ * Reloading an unpacked extension leaves the previous content script running in
+ * any already-open tab and injects a second copy alongside it. Both then drive
+ * the same rows from separate `reveal` flags, so the two fight: one hides what
+ * the other just revealed, and the toggle appears to work one way only. The
+ * user's fix is to close the tab, which they have no way of knowing.
+ *
+ * So each copy stamps a token on <html> at startup. The stamp is on the DOM,
+ * not a variable, because the copies cannot see each other's scope. Whoever
+ * stamps last owns the page; any older copy notices on its next pass and shuts
+ * itself down. Newest-wins rather than first-wins, since the copy that just
+ * loaded is the one carrying the newer code.
+ * ---------------------------------------------------------------- */
+
+const DETOUR_INSTANCE_ATTR = "data-detour-instance";
+const DETOUR_INSTANCE = Math.random().toString(36).slice(2);
+if (site) document.documentElement.setAttribute(DETOUR_INSTANCE_ATTR, DETOUR_INSTANCE);
+
+function detourIsCurrentInstance() {
+  return document.documentElement.getAttribute(DETOUR_INSTANCE_ATTR) === DETOUR_INSTANCE;
+}
+
+/* ---------------------------------------------------------------- *
  * Badge — visible proof of what the extension did
  * ---------------------------------------------------------------- */
 
 let badgeEl = null;
+let observer = null;
+let urlPoll = null;
 
 function ensureBadge() {
   if (badgeEl && document.body.contains(badgeEl)) return badgeEl;
@@ -87,6 +113,7 @@ function renderBadge() {
 
 function run() {
   if (!site) return;
+  if (!detourIsCurrentInstance()) return detourStandDown();
   try {
     DETOUR_STATE.last = detourApply(site, {
       enabled: DETOUR_STATE.enabled,
@@ -98,6 +125,17 @@ function run() {
     DETOUR_STATE.last = { scanned: 0, hidden: 0, usHits: [] };
   }
   renderBadge();
+}
+
+/** Superseded by a newer copy: release the page and go quiet for good. */
+function detourStandDown() {
+  if (observer) observer.disconnect();
+  if (urlPoll) clearInterval(urlPoll);
+  clearTimeout(timer);
+  // Leave the rows exactly as they are — the newer copy owns them now, and
+  // un-hiding here would flash US layovers back onto the page.
+  if (badgeEl && badgeEl.parentNode) badgeEl.remove();
+  badgeEl = null;
 }
 
 let timer = null;
@@ -116,14 +154,12 @@ if (site) {
     run();
   });
 
-  new MutationObserver(schedule).observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+  observer = new MutationObserver(schedule);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
   // Filter changes rewrite the URL without a navigation on both sites.
   let lastUrl = location.href;
-  setInterval(() => {
+  urlPoll = setInterval(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
       schedule();
