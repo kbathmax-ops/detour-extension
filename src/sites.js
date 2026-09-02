@@ -24,11 +24,19 @@ const DETOUR_SITE_GOOGLE = {
 };
 
 /**
- * Skyscanner. Its results DOM could not be inspected — it serves automated
- * browsers a shell that never hydrates — so the row lookup is intentionally
- * generic and the engine's fail-safe rule carries the risk: anything it cannot
- * parse stays visible. Endpoints come from the URL, which is reliable:
+ * Skyscanner. Its results DOM has never been inspected: the site answers an
+ * automated browser with a PerimeterX interstitial ("Are you a person or a
+ * robot?") before any results render, and solving that is not something a tool
+ * should do. So the row lookup here is written blind — intentionally generic,
+ * with the engine's fail-safe rule carrying the risk: anything it cannot parse
+ * stays visible, which means the realistic failure is hiding nothing rather
+ * than hiding wrongly.
+ *
+ * Endpoints come from the URL, which is reliable regardless:
  *   /transport/flights/yyz/cai/260911/
+ *
+ * To check the row lookup by hand in a normal browser, paste
+ * test/skyscanner-probe.js into the console on a results page.
  */
 const DETOUR_SITE_SKYSCANNER = {
   id: "skyscanner",

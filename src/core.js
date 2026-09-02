@@ -50,39 +50,115 @@ function detourCurrencyCodesIn(text) {
 /** "YYZ–CAI", "YYZ-CAI", "YYZ — CAI" — the endpoint pair on a result row. */
 const ROUTE_PAIR_RE = /\b([A-Z]{3})\s*[–—-]\s*([A-Z]{3})\b/;
 
-function detourCodesIn(text) {
-  return new Set(text.match(CODE_RE) || []);
-}
-
 /** Endpoints from a row's own text, if it states them. */
 function detourEndpointsFromText(text) {
   const m = ROUTE_PAIR_RE.exec(text);
   return m ? [m[1], m[2]] : null;
 }
 
+/* ------------------------------------------------------------------ *
+ * Which codes on a row are actually layovers
+ *
+ * Sweeping up every all-caps triplet on the row was biased the WRONG way.
+ * A stray token that happens to also be a US IATA code -- and 1,271 of them
+ * are, eight of which are English words -- turns into a phantom layover and
+ * hides a perfectly good itinerary. That failure is silent: the row simply
+ * isn't there, and nothing tells the traveller a flight was removed. The
+ * project's whole safety rule exists to avoid exactly that, so the code
+ * sweep has to be narrowed to codes in a position that means "layover".
+ *
+ * Two positions qualify:
+ *   a duration to the left on the same line -- "11 hr 11 min DFW"
+ *   an explicit connection word              -- "via DFW", "Layover in DFW"
+ *
+ * Bounded to the LINE, never the whole row. innerText puts each field on its
+ * own line, and the total trip duration sits directly above the route pair:
+ *   "18 hr 30 min\nMEX–YVR"
+ * An unbounded left-context would read that duration as introducing MEX and
+ * book the origin airport as a layover.
+ * ------------------------------------------------------------------ */
+
+const DETOUR_DURATION_RE = /\d+\s*(?:hr|hrs|h|min|mins|m)\b/i;
+const DETOUR_VIA_RE = /\b(?:via|layover(?: in)?|connects? in|connecting in|change (?:in|at)|stop in)\b/i;
+
+function detourLayoverCodesIn(text) {
+  const out = new Set();
+  for (const line of String(text).split("\n")) {
+    for (const m of line.matchAll(CODE_RE)) {
+      const left = line.slice(0, m.index);
+      if (DETOUR_DURATION_RE.test(left) || DETOUR_VIA_RE.test(left)) out.add(m[0]);
+    }
+  }
+  return out;
+}
+
+/**
+ * How many stops the row claims. 0 for a nonstop, N for "N stops", null when
+ * the row doesn't say.
+ *
+ * The count is what makes a "keep" trustworthy. Reading one non-US layover off
+ * a two-stop row proves nothing about the second stop, and calling that row
+ * clean is the same silent failure as a phantom layover, just in reverse. The
+ * numeric form is tested first: a stray "Nonstop" elsewhere in the row must not
+ * be able to talk a multi-stop itinerary down to zero.
+ */
+const DETOUR_STOP_COUNT_RE = /\b(\d+)\s*stops?\b/i;
+const DETOUR_NONSTOP_RE = /\b(?:nonstop|non-stop|direct)\b/i;
+
+function detourStopCount(text) {
+  const m = DETOUR_STOP_COUNT_RE.exec(text);
+  if (m) return Number(m[1]);
+  if (DETOUR_NONSTOP_RE.test(text)) return 0;
+  return null;
+}
+
 /**
  * Decide a row's fate.
- * Returns { verdict: "hide" | "keep" | "unknown", usCodes, layovers }.
+ * Returns { verdict: "hide" | "keep" | "unknown", usCodes, layovers, stops }.
+ *
+ * "unknown" is not a failure mode to be minimised -- it is the honest third
+ * answer, and it renders identically to "keep" on screen. What it buys is a
+ * count the badge can report, so a row the parser could not fully read shows up
+ * as a number the user can see rather than as false confidence.
  */
 function detourJudgeRow(text, endpointsHint) {
   const endpoints = detourEndpointsFromText(text) || endpointsHint;
-  if (!endpoints) return { verdict: "unknown", reason: "no endpoints" };
+  if (!endpoints) {
+    return { verdict: "unknown", reason: "no endpoints", layovers: [], usCodes: [], stops: null };
+  }
 
-  const codes = detourCodesIn(text);
+  const codes = detourLayoverCodesIn(text);
   for (const e of endpoints) codes.delete(e);
   for (const c of detourCurrencyCodesIn(text)) codes.delete(c);
 
   const layovers = [...codes];
-  if (!layovers.length) {
-    // Nonstop, or a row that simply doesn't name its connection. Either way
-    // there is nothing to judge, so it stays.
-    return { verdict: "keep", layovers: [], usCodes: [] };
+  const usCodes = layovers.filter((c) => DETOUR_US_AIRPORTS.has(c));
+  const stops = detourStopCount(text);
+
+  // A positively identified US layover settles the row on its own. Whether the
+  // other stops were readable doesn't matter -- one is enough to hide.
+  if (usCodes.length) return { verdict: "hide", layovers, usCodes, stops };
+
+  if (stops === 0) return { verdict: "keep", layovers, usCodes: [], stops };
+
+  if (stops === null) {
+    // No stop count to check against. Trust a row that named its connections;
+    // don't trust one that named nothing.
+    return layovers.length
+      ? { verdict: "keep", layovers, usCodes: [], stops }
+      : { verdict: "unknown", reason: "no stop count and no layovers read", layovers, usCodes: [], stops };
   }
 
-  const usCodes = layovers.filter((c) => DETOUR_US_AIRPORTS.has(c));
-  return usCodes.length
-    ? { verdict: "hide", layovers, usCodes }
-    : { verdict: "keep", layovers, usCodes: [] };
+  // Every stop accounted for, none of them US.
+  if (layovers.length >= stops) return { verdict: "keep", layovers, usCodes: [], stops };
+
+  return {
+    verdict: "unknown",
+    reason: `read ${layovers.length} of ${stops} stops`,
+    layovers,
+    usCodes: [],
+    stops,
+  };
 }
 
 /** Rows say how many stops they have. Nonstop counts — it still needs judging. */
@@ -168,6 +244,7 @@ function detourApply(site, { enabled, reveal }) {
   const judged = document.querySelectorAll(`[${DETOUR_MARK}]`);
   const usHits = new Set();
   let hidden = 0;
+  let unread = 0;
 
   for (const row of judged) {
     const verdict = row.getAttribute(DETOUR_MARK);
@@ -175,11 +252,15 @@ function detourApply(site, { enabled, reveal }) {
       hidden++;
       const codes = row.getAttribute(DETOUR_US_ATTR);
       if (codes) codes.split(",").forEach((c) => usHits.add(c));
+    } else if (verdict === "unknown") {
+      // Left on screen, but counted: the badge says so rather than letting a
+      // row the parser couldn't finish reading pass as verified clean.
+      unread++;
     }
     row.classList.toggle(DETOUR_HIDDEN_CLASS, enabled && !reveal && verdict === "hide");
   }
 
-  return { scanned: judged.length, hidden, usHits: [...usHits] };
+  return { scanned: judged.length, hidden, unread, usHits: [...usHits] };
 }
 
 /**

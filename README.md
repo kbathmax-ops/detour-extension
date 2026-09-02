@@ -14,15 +14,30 @@ screen, so the fares stay the site's own real ones.
 4. Search a flight on Google Flights or Skyscanner
 
 A badge appears bottom-right showing what was hidden, with a **show them**
-toggle. The toolbar popup has an on/off switch.
+toggle. The toolbar popup has an on/off switch and repeats the last count.
+
+To build the Chrome Web Store upload instead: `./package.sh`. It runs the tests
+first and packages from an allowlist, so design sources and test files never
+ship. `STORE.md` has the listing copy and the two items that still need you.
 
 ## How it decides
 
-Each result row is read as text. The route endpoints are removed, and whatever
-all-caps three-letter codes remain are the layovers. If any is on US soil, the
-row is hidden.
+Each result row is read as text. Codes sitting in **layover position** — with a
+duration to their left on the same line (`11 hr 11 min DFW`) or after a
+connection word (`via DFW`) — are the layovers. If any is on US soil, the row is
+hidden.
 
-Two deliberate choices:
+Position matters, and an earlier version learned that the hard way by taking
+every all-caps triplet on the row. 1,271 US IATA codes is a wide net:
+
+- **LOT** is LOT Polish Airlines, and also Lottsburg, Virginia. A Warsaw
+  connection hid itself as a US layover.
+- **PDT** is Pacific Daylight Time, and also Pendleton, Oregon. Any row whose
+  departure time carried a timezone hid itself.
+
+Both are covered by tests now.
+
+Three deliberate choices:
 
 **Text, not CSS selectors.** These sites ship obfuscated class names that churn
 constantly — selector-based extensions break every few weeks. What stays stable
@@ -32,6 +47,14 @@ is that a row prints its layover as an IATA code near the word "stop".
 is positively identified. No endpoints found, no codes found, an unparseable
 row — all stay on screen. Showing a US itinerary is a visible annoyance you can
 catch yourself; silently hiding a valid non-US one is invisible and worse.
+
+**"Unread" is a third answer, and it is counted.** Reading one non-US layover off
+a two-stop row proves nothing about the second stop, so calling that row clean
+would be false confidence — the same silent failure as a phantom layover, in
+reverse. Rows say how many stops they have; when fewer layovers than that were
+read, the verdict is `unknown`. On screen it looks the same as `keep` (the row
+stays), but the badge reports it: `9 hidden of 22 · 2 unread`. A parser that
+can't finish a row now says so instead of quietly passing it.
 
 ## Prices, and why they matter
 
@@ -74,13 +97,22 @@ A later YVR→MEX session in PEN detected nothing at all — the price regex onl
 knew `$£€`. Fixed, with `test/detect.test.mjs` covering that page's rows, the
 symbol-price regression, and all nineteen currency/airport collisions.
 
-**Skyscanner — implemented, unverified.** Skyscanner serves automated browsers a
-shell that never hydrates, so its row format could not be inspected from here. It
-runs on the same engine with endpoints read from the URL
-(`/transport/flights/yyz/cai/260911/`). Because of the fail-safe rule the
-realistic failure is that it hides *nothing* rather than hides wrongly — but it
-needs a real browser to confirm. If the badge reads "no results detected yet" on
-a Skyscanner results page, the row detection needs adjusting for their markup.
+**Skyscanner — implemented, still unverified, and now known to be unverifiable
+from an automated browser.** Skyscanner answers one with a PerimeterX
+interstitial — *"Are you a person or a robot?"* — before any results render.
+That is a CAPTCHA, and solving it is not something a tool should do, so the row
+format has never been inspected and the adapter in `src/sites.js` is written
+blind. Endpoints come from the URL (`/transport/flights/yyz/cai/260911/`), which
+is reliable; the row lookup is the unknown.
+
+Because of the fail-safe rule, the realistic failure is that it hides *nothing*
+rather than hides wrongly.
+
+**Verifying it takes about thirty seconds in a normal browser**, which is not
+blocked. Search a route with US connections, open DevTools → Console, and paste
+`test/skyscanner-probe.js`. It runs the real engine against the real page and
+prints what it found, including the nearest misses if it found nothing. The
+header comment says how to read the output.
 
 ## Notes for later
 
@@ -96,12 +128,32 @@ a Skyscanner results page, the row detection needs adjusting for their markup.
 ## Files
 
 ```
-manifest.json          MV3, content scripts scoped to the two sites
-src/us-airports.js     generated US IATA set
-src/core.js            detection engine — judging, caching, hiding
-src/sites.js           per-site adapters (row lookup, endpoint fallback)
-src/content.js         bootstrap, badge, observer
-src/detour.css         hidden-row rule and badge styling
-popup.html/js          on/off switch
-test/detect.test.mjs   detection + judgement tests (node test/detect.test.mjs)
+manifest.json              MV3, content scripts scoped to the two sites
+src/us-airports.js         generated US IATA set
+src/core.js                detection engine — judging, caching, hiding
+src/sites.js               per-site adapters (row lookup, endpoint fallback)
+src/content.js             bootstrap, badge, observer, state publishing
+src/detour.css             hidden-row rule and badge styling
+popup.html/js              on/off switch and last-pass readout
+test/detect.test.mjs       detection + judgement tests (node test/detect.test.mjs)
+test/skyscanner-probe.js   console script for verifying Skyscanner by hand
+package.sh                 builds the store zip from an allowlist
+PRIVACY.md                 privacy policy (required for the store listing)
+STORE.md                   listing copy and remaining submission items
+design/                    icon sources and the generator — not shipped
 ```
+
+## Design notes
+
+**The badge is a light pill on purpose.** Google Flights ships both a light and
+a dark theme and the user can switch either at any time, so the badge has to
+stand apart from a background it cannot predict. The old dark badge vanished
+into the dark theme. A light one pops against dark, and against light it is held
+apart by three things that don't depend on the surface colour: a hairline
+border, a real drop shadow, and a saturated status dot. One treatment covers
+both themes instead of two that each fail on the other.
+
+**The toolbar icon is `DTR`, not the wordmark.** The script "detour" wordmark
+collapses into a smudge at 16px — `design/preview-compare.png` is the comparison
+that settled it. Three condensed capitals on the brand blue still resolve in a
+pinned toolbar slot. `design/make-icons.py` regenerates the set.

@@ -6,15 +6,43 @@
   .wordmark { display: block; width: calc(100% + 28px); margin: -14px -14px 10px; }
   p  { margin: 0 0 12px; color: #6d654f; font-size: 12px; }
   label { display: flex; align-items: center; gap: 9px; font-weight: 700; cursor: pointer; }
-  .note { margin-top: 12px; font-size: 11px; color: #6d654f; border-top: 1px solid rgba(27,23,16,.18); padding-top: 9px; }
+
+  /* Last pass. The badge on the page is the primary readout; this is the one
+     the user can still reach if row detection fails badly enough that the
+     badge never mounts. */
+  .status { display: flex; align-items: center; gap: 8px; margin-top: 12px;
+            padding: 9px 10px; border-radius: 8px; background: #fbf9f4;
+            border: 1px solid rgba(27,23,16,.14); font-size: 12px; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #8a8a80; }
+  .status.clean  .dot { background: #15803d; }
+  .status.active .dot { background: #c2410c; }
+  .status.idle   .dot { background: #a16207; }
+  .status b { color: #2e246b; font-weight: 800; }
+  .status .where { display: block; color: #6d654f; font-weight: 600; }
+
+  .note { margin-top: 12px; font-size: 11px; color: #6d654f; border-top: 1px solid rgba(27, 23, 16, .18); padding-top: 9px; }
+  .note a { color: #2e246b; }
   .support { display: flex; align-items: center; justify-content: center; gap: 6px;
              margin-top: 10px; padding: 8px 10px; border-radius: 8px; text-decoration: none;
              background: #2e246b; color: #fff; font-size: 12px; font-weight: 700; }
   .support:hover { background: #3a2e86; }
 </style>
+
 <img class="wordmark" src="icons/wordmark-512.png" alt="detour">
 <p>Hides itineraries that connect through the US or its territories.</p>
+
 <label><input type="checkbox" id="enabled" checked> Skip US layovers</label>
-<div class="note">Works on Google Flights and Skyscanner. Anything it can't read with confidence is left visible.</div>
+
+<div class="status" id="status">
+  <span class="dot"></span>
+  <span id="status-text">Checking…</span>
+</div>
+
+<div class="note">
+  Works on Google Flights and Skyscanner. Anything it can't read with confidence
+  is left visible. No accounts, no tracking, no network calls —
+  <a href="https://github.com/kbathmax-ops/detour-extension/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">privacy</a>.
+</div>
+
 <a class="support" id="support" href="#" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
 <script src="popup.js"></script>

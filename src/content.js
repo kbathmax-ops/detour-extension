@@ -7,7 +7,7 @@
  * the difference between "nothing was hidden" and "the parser broke".
  */
 
-const DETOUR_STATE = { enabled: true, reveal: false, last: { scanned: 0, hidden: 0, usHits: [] } };
+const DETOUR_STATE = { enabled: true, reveal: false, last: { scanned: 0, hidden: 0, unread: 0, usHits: [] } };
 
 const site = detourActiveSite();
 
@@ -73,38 +73,80 @@ function el(tag, className, text) {
 
 function renderBadge() {
   const badge = ensureBadge();
-  const { scanned, hidden, usHits } = DETOUR_STATE.last;
+  const { scanned, hidden, unread, usHits } = DETOUR_STATE.last;
 
   badge.replaceChildren();
   badge.appendChild(el("span", "detour-dot"));
 
+  const line = el("span", "detour-text");
+  badge.appendChild(line);
+
   if (!DETOUR_STATE.enabled) {
     badge.className = "detour-off";
-    badge.appendChild(el("span", null, "detour is off"));
+    line.textContent = "detour is off";
     return;
   }
   if (!scanned) {
     // Distinguishes "no results on screen yet" from "we hid nothing".
     badge.className = "detour-idle";
-    badge.appendChild(el("span", null, "detour · no results detected yet"));
+    line.textContent = "detour · no results detected yet";
     return;
   }
+
+  // Rows the parser could not finish reading. Reported rather than folded into
+  // the clean count, because "22 results, none of them US" and "21 plus one I
+  // couldn't read" are different claims and only one of them is true.
+  const unreadNote = unread ? ` · ${unread} unread` : "";
+
   if (!hidden) {
     badge.className = "detour-clean";
-    badge.appendChild(el("span", null, `detour · no US layovers in ${scanned} results`));
+    line.appendChild(document.createTextNode(`detour · no US layovers in ${scanned} results`));
+    if (unreadNote) line.appendChild(el("span", "detour-sub", unreadNote));
     return;
   }
 
   badge.className = "detour-active";
   const via = usHits.slice(0, 4).join(", ") + (usHits.length > 4 ? "…" : "");
-  const line = el("span");
   line.appendChild(el("b", null, String(hidden)));
-  line.appendChild(document.createTextNode(` hidden of ${scanned}${via ? ` · via ${via}` : ""}`));
-  badge.appendChild(line);
+  line.appendChild(document.createTextNode(` hidden of ${scanned}`));
+  if (via) line.appendChild(el("span", "detour-sub", ` · via ${via}`));
+  if (unreadNote) line.appendChild(el("span", "detour-sub", unreadNote));
 
   const btn = el("button", null, DETOUR_STATE.reveal ? "hide again" : "show them");
   btn.dataset.action = "reveal";
   badge.appendChild(btn);
+}
+
+/* ---------------------------------------------------------------- *
+ * Publish the last result for the popup
+ *
+ * The badge lives on the page, so if row detection ever fails badly enough
+ * that the badge never mounts, the user has no signal at all that the
+ * extension is alive. The popup is that second signal -- it can be opened from
+ * the toolbar whatever the page is doing.
+ *
+ * Written only when the numbers actually change: MutationObserver passes fire
+ * constantly on these sites, and an unconditional write would hammer
+ * storage.local for no new information.
+ * ---------------------------------------------------------------- */
+
+let lastPublished = "";
+
+function publishState() {
+  const { scanned, hidden, unread, usHits } = DETOUR_STATE.last;
+  const payload = {
+    site: site ? site.label : null,
+    scanned,
+    hidden,
+    unread,
+    usHits: usHits.slice(0, 8),
+    at: Date.now(),
+  };
+  // `at` is excluded from the comparison, or every pass would look like a change.
+  const key = JSON.stringify([payload.site, scanned, hidden, unread, payload.usHits]);
+  if (key === lastPublished) return;
+  lastPublished = key;
+  chrome.storage?.local.set({ lastResult: payload });
 }
 
 /* ---------------------------------------------------------------- *
@@ -122,9 +164,10 @@ function run() {
   } catch (err) {
     // Never let a parsing failure break the host page.
     console.warn("[detour] pass failed:", err);
-    DETOUR_STATE.last = { scanned: 0, hidden: 0, usHits: [] };
+    DETOUR_STATE.last = { scanned: 0, hidden: 0, unread: 0, usHits: [] };
   }
   renderBadge();
+  publishState();
 }
 
 /** Superseded by a newer copy: release the page and go quiet for good. */
