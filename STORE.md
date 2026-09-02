@@ -6,10 +6,6 @@ refuses to package if they fail.
 
 ## Still open
 
-- [ ] **`SUPPORT_URL` in `popup.js`** — set it to the real Buy Me a Coffee page.
-      While it is `""` the link hides itself, so shipping as-is is safe; it just
-      means no support link. This is the one thing that cannot be filled in
-      without your account.
 - [ ] **Screenshots** — the store wants 1280×800 or 640×400. Take them on a live
       Google Flights result page showing the badge with a real hidden count.
 - [ ] **Skyscanner verification** — see "Status" in the README. The listing

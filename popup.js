@@ -1,7 +1,6 @@
-/* Support link. Set this to the real Buy Me a Coffee page; the link stays
-   hidden until it is a real URL, so a placeholder can never ship as a dead
-   link in a published build. */
-const SUPPORT_URL = "";
+/* Support link. The button hides itself whenever this is empty, so a
+   placeholder can never ship as a dead link in a published build. */
+const SUPPORT_URL = "https://buymeacoffee.com/koshin";
 
 const support = document.getElementById("support");
 if (SUPPORT_URL) support.href = SUPPORT_URL;
