@@ -1,7 +1,7 @@
 /**
  * detour — content script entry point.
  *
- * Results on these sites re-render constantly (filter changes, lazy loading,
+ * Results on Google Flights re-render constantly (filter changes, lazy loading,
  * price polling), so a single pass is never enough. A debounced MutationObserver
  * re-runs the filter, and the badge reports what happened so the user can tell
  * the difference between "nothing was hidden" and "the parser broke".
@@ -126,7 +126,7 @@ function renderBadge() {
  * the toolbar whatever the page is doing.
  *
  * Written only when the numbers actually change: MutationObserver passes fire
- * constantly on these sites, and an unconditional write would hammer
+ * constantly on this site, and an unconditional write would hammer
  * storage.local for no new information.
  * ---------------------------------------------------------------- */
 
@@ -200,7 +200,7 @@ if (site) {
   observer = new MutationObserver(schedule);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Filter changes rewrite the URL without a navigation on both sites.
+  // Filter changes rewrite the URL without a navigation.
   let lastUrl = location.href;
   urlPoll = setInterval(() => {
     if (location.href !== lastUrl) {

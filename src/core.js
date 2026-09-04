@@ -20,7 +20,7 @@ const DETOUR_MARK = "data-detour-checked";
 const CODE_RE = /\b[A-Z]{3}\b/g;
 
 /**
- * A price, in either form these sites use: a symbol ("$1,914") or an ISO
+ * A price, in either form the site uses: a symbol ("$1,914") or an ISO
  * currency code ("PEN 1,914"). Google picks the form from the viewer's region,
  * so the code form is not an edge case — a Peru-region session renders every
  * price that way, and a symbol-only match detects zero rows on the whole page.
@@ -266,8 +266,8 @@ function detourApply(site, { enabled, reveal }) {
 /**
  * The searched route, read once per URL from anywhere on the page. Used as the
  * endpoint fallback for rows that don't state their own pair. Cached because it
- * scans the whole document; invalidated when the URL changes, since both sites
- * rewrite the URL when the search changes.
+ * scans the whole document; invalidated when the URL changes, since the site
+ * rewrites the URL when the search changes.
  */
 let _detourRouteCache = { href: null, value: null };
 function detourPageRoute() {

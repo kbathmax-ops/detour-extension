@@ -43,7 +43,6 @@ copied, or sent.
 The extension runs only on:
 
 - `https://www.google.com/travel/flights*` (and `.ca`, `.co.uk`)
-- `https://www.skyscanner.com|.ca|.net|.co.uk/transport/flights/*`
 
 It does not run on any other site, and it has no permission to.
 

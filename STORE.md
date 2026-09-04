@@ -1,6 +1,6 @@
 # Chrome Web Store submission
 
-Everything the listing form asks for, plus the two items that still need a
+Everything the listing form asks for, plus the one item that still needs a
 human. Build the upload with `./package.sh` — it runs the tests first and
 refuses to package if they fail.
 
@@ -8,8 +8,6 @@ refuses to package if they fail.
 
 - [ ] **Screenshots** — the store wants 1280×800 or 640×400. Take them on a live
       Google Flights result page showing the badge with a real hidden count.
-- [ ] **Skyscanner verification** — see "Status" in the README. The listing
-      copy below deliberately leads with Google Flights for this reason.
 
 ## Listing fields
 
@@ -42,7 +40,6 @@ has an on/off switch and repeats the last count.
 
 WHERE IT WORKS
 • Google Flights (google.com, google.ca, google.co.uk)
-• Skyscanner (.com, .ca, .net, .co.uk)
 
 HOW IT DECIDES
 Each result row is read as text. Airport codes sitting in layover position — next
@@ -80,11 +77,11 @@ most recent pass (rows scanned, hidden, unread, plus the airport codes shown on
 the badge) so the toolbar popup can display them. Nothing is transmitted.
 ```
 
-**Host permissions — google.com/travel/flights, skyscanner.\* /transport/flights**
+**Host permissions — google.com/travel/flights**
 ```
-The extension's entire function is to read and hide flight result rows on these
-two search sites. It runs content scripts only on their results pages and has no
-access to any other site.
+The extension's entire function is to read and hide flight result rows on Google
+Flights. It runs content scripts only on its results pages and has no access to
+any other site.
 ```
 
 **Remote code** — none. All code ships in the package.

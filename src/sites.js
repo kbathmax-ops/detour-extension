@@ -3,7 +3,7 @@
  *
  * Each supplies only what the shared engine can't infer: where the result rows
  * live, and a fallback source for the route endpoints when a row doesn't state
- * them itself.
+ * them itself. Google Flights is the only site currently supported.
  */
 
 /** Google Flights states endpoints on every row ("YYZ–CAI"), verified live. */
@@ -23,35 +23,7 @@ const DETOUR_SITE_GOOGLE = {
   endpointsHint: () => detourPageRoute(),
 };
 
-/**
- * Skyscanner. Its results DOM has never been inspected: the site answers an
- * automated browser with a PerimeterX interstitial ("Are you a person or a
- * robot?") before any results render, and solving that is not something a tool
- * should do. So the row lookup here is written blind — intentionally generic,
- * with the engine's fail-safe rule carrying the risk: anything it cannot parse
- * stays visible, which means the realistic failure is hiding nothing rather
- * than hiding wrongly.
- *
- * Endpoints come from the URL, which is reliable regardless:
- *   /transport/flights/yyz/cai/260911/
- *
- * To check the row lookup by hand in a normal browser, paste
- * test/skyscanner-probe.js into the console on a results page.
- */
-const DETOUR_SITE_SKYSCANNER = {
-  id: "skyscanner",
-  label: "Skyscanner",
-  test: () =>
-    /(^|\.)skyscanner\.[a-z.]+$/.test(location.hostname) &&
-    location.pathname.includes("/transport/flights/"),
-  findRows: () => detourCandidates('li, [role="listitem"], article, section, div'),
-  endpointsHint: () => {
-    const m = location.pathname.match(/\/transport\/flights\/([a-z0-9]{3})\/([a-z0-9]{3})\//i);
-    return m ? [m[1].toUpperCase(), m[2].toUpperCase()] : detourPageRoute();
-  },
-};
-
-const DETOUR_SITES = [DETOUR_SITE_GOOGLE, DETOUR_SITE_SKYSCANNER];
+const DETOUR_SITES = [DETOUR_SITE_GOOGLE];
 
 function detourActiveSite() {
   return DETOUR_SITES.find((s) => s.test()) || null;

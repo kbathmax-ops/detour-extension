@@ -1,7 +1,7 @@
 # detour — hide US layovers
 
 A browser extension that removes flight itineraries connecting through the US or
-its territories, on **Google Flights** and **Skyscanner**.
+its territories, on **Google Flights**.
 
 No API, no account, no network calls. It filters the results already on your
 screen, so the fares stay the site's own real ones.
@@ -11,7 +11,7 @@ screen, so the fares stay the site's own real ones.
 1. Open `chrome://extensions`
 2. Turn on **Developer mode** (top right)
 3. **Load unpacked** → select this folder
-4. Search a flight on Google Flights or Skyscanner
+4. Search a flight on Google Flights
 
 A badge appears bottom-right showing what was hidden, with a **show them**
 toggle. The toolbar popup has an on/off switch and repeats the last count.
@@ -39,7 +39,7 @@ Both are covered by tests now.
 
 Three deliberate choices:
 
-**Text, not CSS selectors.** These sites ship obfuscated class names that churn
+**Text, not CSS selectors.** Flight sites ship obfuscated class names that churn
 constantly — selector-based extensions break every few weeks. What stays stable
 is that a row prints its layover as an IATA code near the word "stop".
 
@@ -97,23 +97,6 @@ A later YVR→MEX session in PEN detected nothing at all — the price regex onl
 knew `$£€`. Fixed, with `test/detect.test.mjs` covering that page's rows, the
 symbol-price regression, and all nineteen currency/airport collisions.
 
-**Skyscanner — implemented, still unverified, and now known to be unverifiable
-from an automated browser.** Skyscanner answers one with a PerimeterX
-interstitial — *"Are you a person or a robot?"* — before any results render.
-That is a CAPTCHA, and solving it is not something a tool should do, so the row
-format has never been inspected and the adapter in `src/sites.js` is written
-blind. Endpoints come from the URL (`/transport/flights/yyz/cai/260911/`), which
-is reliable; the row lookup is the unknown.
-
-Because of the fail-safe rule, the realistic failure is that it hides *nothing*
-rather than hides wrongly.
-
-**Verifying it takes about thirty seconds in a normal browser**, which is not
-blocked. Search a route with US connections, open DevTools → Console, and paste
-`test/skyscanner-probe.js`. It runs the real engine against the real page and
-prints what it found, including the nearest misses if it found nothing. The
-header comment says how to read the output.
-
 ## Notes for later
 
 - The badge is built with `createElement`/`textContent`, never `innerHTML`:
@@ -123,20 +106,19 @@ header comment says how to read the output.
   hidden row can never be re-read.
 - Results re-render constantly (filter changes, lazy loading, price polling), so
   a debounced `MutationObserver` re-runs the pass, plus a URL-change poll since
-  both sites rewrite the URL without navigating.
+  the site rewrites the URL without navigating.
 
 ## Files
 
 ```
-manifest.json              MV3, content scripts scoped to the two sites
+manifest.json              MV3, content scripts scoped to Google Flights
 src/us-airports.js         generated US IATA set
 src/core.js                detection engine — judging, caching, hiding
-src/sites.js               per-site adapters (row lookup, endpoint fallback)
+src/sites.js               site adapter (row lookup, endpoint fallback)
 src/content.js             bootstrap, badge, observer, state publishing
 src/detour.css             hidden-row rule and badge styling
 popup.html/js              on/off switch and last-pass readout
 test/detect.test.mjs       detection + judgement tests (node test/detect.test.mjs)
-test/skyscanner-probe.js   console script for verifying Skyscanner by hand
 package.sh                 builds the store zip from an allowlist
 PRIVACY.md                 privacy policy (required for the store listing)
 STORE.md                   listing copy and remaining submission items

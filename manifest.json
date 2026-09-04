@@ -27,11 +27,7 @@
       "matches": [
         "https://www.google.com/travel/flights*",
         "https://www.google.ca/travel/flights*",
-        "https://www.google.co.uk/travel/flights*",
-        "https://www.skyscanner.com/transport/flights/*",
-        "https://www.skyscanner.ca/transport/flights/*",
-        "https://www.skyscanner.net/transport/flights/*",
-        "https://www.skyscanner.co.uk/transport/flights/*"
+        "https://www.google.co.uk/travel/flights*"
       ],
       "js": [
         "src/us-airports.js",

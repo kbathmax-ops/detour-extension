@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Builds the Chrome Web Store upload zip.
 #
-# An allowlist, not an ignore list. The repo carries design sources, tests and
-# a probe script that must not ship, and an ignore list silently starts
-# shipping anything added later that nobody remembered to exclude.
+# An allowlist, not an ignore list. The repo carries design sources and tests
+# that must not ship, and an ignore list silently starts shipping anything
+# added later that nobody remembered to exclude.
 set -euo pipefail
 cd "$(dirname "$0")"
 
