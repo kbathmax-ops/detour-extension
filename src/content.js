@@ -49,21 +49,45 @@ function detourIsCurrentInstance() {
  * ---------------------------------------------------------------- */
 
 let badgeEl = null;
+let badgeDot = null;
+let badgeLine = null;
+let badgeBtn = null;
+let lastRender = "";
 let observer = null;
 let urlPoll = null;
 
+/* The badge's elements are built once and then only have their text updated.
+ *
+ * They used to be thrown away and rebuilt on every pass, which quietly broke
+ * the toggle: a click only fires when mouseup lands on the SAME element that
+ * received mousedown, so any pass landing inside the ~100ms a person holds the
+ * button down destroyed the element mid-press and the browser produced no
+ * click at all. On a page that re-renders as often as Google Flights does,
+ * that is a coin flip -- hence having to press the thing several times before
+ * anything happened. Keeping the element alive makes a press a press. */
 function ensureBadge() {
   if (badgeEl && document.body.contains(badgeEl)) return badgeEl;
+
   badgeEl = document.createElement("div");
   badgeEl.id = "detour-badge";
   badgeEl.setAttribute("role", "status");
-  document.body.appendChild(badgeEl);
-  badgeEl.addEventListener("click", (e) => {
-    if (e.target instanceof HTMLElement && e.target.dataset.action === "reveal") {
-      DETOUR_STATE.reveal = !DETOUR_STATE.reveal;
-      run();
-    }
+
+  badgeDot = el("span", "detour-dot");
+  badgeLine = el("span", "detour-text");
+  badgeBtn = el("button", null, "show them");
+  badgeBtn.dataset.action = "reveal";
+  badgeBtn.hidden = true;
+  badgeEl.append(badgeDot, badgeLine, badgeBtn);
+
+  // Bound to the button itself. Delegating from the badge relied on
+  // e.target being the button, which stops being reliable the moment the
+  // button gains any child node.
+  badgeBtn.addEventListener("click", () => {
+    DETOUR_STATE.reveal = !DETOUR_STATE.reveal;
+    run();
   });
+
+  document.body.appendChild(badgeEl);
   return badgeEl;
 }
 
@@ -84,21 +108,26 @@ function renderBadge() {
   const badge = ensureBadge();
   const { scanned, hidden, unread, usHits } = DETOUR_STATE.last;
 
-  badge.replaceChildren();
-  badge.appendChild(el("span", "detour-dot"));
+  // Nothing changed since the last render? Then don't touch the DOM. Without
+  // this the badge rewrote itself on every pass, and since the observer watches
+  // the whole document that rewrite was itself a mutation -- the badge kept
+  // waking the observer that kept re-rendering the badge.
+  const sig = JSON.stringify([DETOUR_STATE.enabled, DETOUR_STATE.reveal, scanned, hidden, unread, usHits]);
+  if (sig === lastRender) return;
+  lastRender = sig;
 
-  const line = el("span", "detour-text");
-  badge.appendChild(line);
+  badgeLine.replaceChildren();
+  badgeBtn.hidden = true;
 
   if (!DETOUR_STATE.enabled) {
     badge.className = "detour-off";
-    line.textContent = "detour is off";
+    badgeLine.textContent = "detour is off";
     return;
   }
   if (!scanned) {
     // Distinguishes "no results on screen yet" from "we hid nothing".
     badge.className = "detour-idle";
-    line.textContent = "detour · no results detected yet";
+    badgeLine.textContent = "detour · no results detected yet";
     return;
   }
 
@@ -109,21 +138,20 @@ function renderBadge() {
 
   if (!hidden) {
     badge.className = "detour-clean";
-    line.appendChild(document.createTextNode(`detour · no US layovers in ${scanned} results`));
-    if (unreadNote) line.appendChild(el("span", "detour-sub", unreadNote));
+    badgeLine.appendChild(document.createTextNode(`detour · no US layovers in ${scanned} results`));
+    if (unreadNote) badgeLine.appendChild(el("span", "detour-sub", unreadNote));
     return;
   }
 
   badge.className = "detour-active";
   const via = usHits.slice(0, 4).join(", ") + (usHits.length > 4 ? "…" : "");
-  line.appendChild(el("b", null, String(hidden)));
-  line.appendChild(document.createTextNode(` hidden of ${scanned}`));
-  if (via) line.appendChild(el("span", "detour-sub", ` · via ${via}`));
-  if (unreadNote) line.appendChild(el("span", "detour-sub", unreadNote));
+  badgeLine.appendChild(el("b", null, String(hidden)));
+  badgeLine.appendChild(document.createTextNode(` hidden of ${scanned}`));
+  if (via) badgeLine.appendChild(el("span", "detour-sub", ` · via ${via}`));
+  if (unreadNote) badgeLine.appendChild(el("span", "detour-sub", unreadNote));
 
-  const btn = el("button", null, DETOUR_STATE.reveal ? "hide again" : "show them");
-  btn.dataset.action = "reveal";
-  badge.appendChild(btn);
+  badgeBtn.textContent = DETOUR_STATE.reveal ? "hide again" : "show them";
+  badgeBtn.hidden = false;
 }
 
 /* ---------------------------------------------------------------- *
@@ -163,6 +191,7 @@ function publishState() {
  * ---------------------------------------------------------------- */
 
 function run() {
+  lastRunAt = Date.now();
   if (!detourIsCurrentInstance()) return detourStandDown();
 
   site = detourActiveSite();
@@ -201,13 +230,31 @@ function detourStandDown() {
 
 function removeBadge() {
   if (badgeEl && badgeEl.parentNode) badgeEl.remove();
-  badgeEl = null;
+  badgeEl = badgeDot = badgeLine = badgeBtn = null;
+  lastRender = "";
 }
 
+/* Debounced, but with a ceiling.
+ *
+ * A plain trailing debounce is starvable: every mutation cleared the pending
+ * timer and set a new one, so while a page mutated more often than every 350ms
+ * the pass simply never ran. Google Flights polls prices and lazy-loads
+ * constantly, and in a harness reproducing that churn the pass went over four
+ * seconds without firing once -- new results stayed unfiltered, and a
+ * superseded copy of the script never reached the check that retires it.
+ *
+ * So: still coalesce bursts, but never let more than MAX_WAIT pass without a
+ * run while mutations are arriving. */
+const DETOUR_DEBOUNCE_MS = 350;
+const DETOUR_MAX_WAIT_MS = 1200;
+
 let timer = null;
+let lastRunAt = 0;
+
 function schedule() {
+  if (Date.now() - lastRunAt >= DETOUR_MAX_WAIT_MS) return run();
   clearTimeout(timer);
-  timer = setTimeout(run, 350);
+  timer = setTimeout(run, DETOUR_DEBOUNCE_MS);
 }
 
 /* ---------------------------------------------------------------- *
@@ -220,7 +267,12 @@ function schedule() {
     run();
   });
 
-  observer = new MutationObserver(schedule);
+  // Mutations confined to the badge are our own render; reacting to them would
+  // be a feedback loop. Anything else is the page changing, which we care about.
+  observer = new MutationObserver((records) => {
+    if (badgeEl && records.every((r) => badgeEl.contains(r.target))) return;
+    schedule();
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   // Filter changes rewrite the URL without a navigation.

@@ -139,11 +139,45 @@ src/content.js             bootstrap, badge, observer, state publishing
 src/detour.css             hidden-row rule and badge styling
 popup.html/js              on/off switch and last-pass readout
 test/detect.test.mjs       detection + judgement tests (node test/detect.test.mjs)
+test/harness/index.html    live-DOM harness for badge and toggle behaviour
 package.sh                 builds the store zip from an allowlist
 PRIVACY.md                 privacy policy (required for the store listing)
 STORE.md                   listing copy and remaining submission items
 design/                    icon sources and the generator — not shipped
 ```
+
+## The harness
+
+`test/detect.test.mjs` covers judgement, which is pure text. It cannot cover the
+failure modes that only exist in a live DOM — and two of those made the toggle
+feel broken. `test/harness/index.html` loads the real `core.js`, `sites.js` and
+`content.js` against fake result rows so both can be reproduced:
+
+```bash
+python3 -m http.server 8733     # from the repo root
+# open http://localhost:8733/test/harness/index.html, then in the console:
+await detourCheckPress()        # toggle survives a pass landing mid-press
+await detourCheckStarvation()   # passes keep running while the page churns
+```
+
+**The toggle needed several presses.** A click only fires when mouseup lands on
+the *same element* that received mousedown. The badge was rebuilt wholesale on
+every pass, so any pass landing inside the ~100 ms a person holds the button
+destroyed the element mid-press and the browser produced no click at all. On a
+page that re-renders as often as Google Flights, that is a coin flip. The badge
+now updates its text in place and keeps the button alive.
+
+**Passes could stop happening entirely.** The 350 ms debounce was a plain
+trailing one: every mutation cleared the pending timer and set a new one, so
+while the page mutated faster than that, the pass never ran. Measured in the
+harness under continuous churn, it went over four seconds without firing once —
+new results stayed unfiltered, and a superseded copy of the script never reached
+the check that retires it. There is now a 1.2 s ceiling: bursts still coalesce,
+but a pass can no longer be starved.
+
+The badge also woke the observer that re-rendered the badge. It now skips
+mutations confined to its own subtree, and skips the render entirely when
+nothing changed.
 
 ## Design notes
 

@@ -1,0 +1,106 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>detour harness</title>
+<!--
+  Loads the REAL extension files against fake Google Flights rows, so the badge,
+  the observer and the toggle can be driven without packing an extension. Rows
+  are transcribed from a live YYZ-LTO search.
+
+  Serve the repo root and open /test/harness/index.html.
+-->
+<link rel="stylesheet" href="../../src/detour.css">
+<style>
+  body { background:#202124; color:#e8eaed; font:13px/1.5 ui-sans-serif,-apple-system,sans-serif; margin:0; padding:20px 24px 120px; }
+  .row { display:grid; grid-template-columns:1.6fr .7fr .8fr .8fr .7fr; gap:16px;
+         padding:14px 16px; border:1px solid #3c4043; border-radius:8px; margin-bottom:8px; }
+  .muted { color:#9aa0a6; }
+</style>
+
+<h2 style="font-size:14px">Top departing flights</h2>
+<div id="rows"></div>
+
+<script>
+// Rows: [times, airline, duration, pair, stops, codes, co2, price]
+const ROWS = [
+  ['11:35 PM – 2:20 PM+2','WestJet','40 hr 45 min','YYZ–LTO','2 stops','YOW, YYC','571 kg CO2e','CA$648'],
+  ['6:21 PM – 11:27 AM+1','American · Operated by Envoy Air','19 hr 6 min','YYZ–LTO','2 stops','ORD, PHX','420 kg CO2e','CA$687'],
+  ['6:21 PM – 11:27 AM+1','American · Operated by Envoy Air','19 hr 6 min','YYZ–LTO','2 stops','ORD, PHX','438 kg CO2e','CA$687'],
+  ['7:20 AM – 1:55 PM+1','Self transfer · WestJet, Volaris','32 hr 35 min','YYZ–LTO','3 stops','PVR, GDL, TIJ','501 kg CO2e','CA$1,030'],
+  ['6:45 AM – 1:55 PM+1','Self transfer · Air Transat, Volaris','33 hr 10 min','YYZ–LTO','2 stops','PVR, TIJ','460 kg CO2e','CA$1,060'],
+  ['5:15 PM – 1:40 PM+1','Separate tickets · Alaska','22 hr 25 min','YYZ–LTO','2 stops','SEA, LAX','629 kg CO2e','CA$1,114'],
+  ['5:35 PM – 1:55 PM+1','Self transfer · Air Canada, Volaris','22 hr 20 min','YYZ–LTO','2 stops','GDL, TIJ','507 kg CO2e','CA$1,203'],
+  ['7:44 PM – 1:40 PM+1','United, Alaska','19 hr 56 min','YYZ–LTO','2 stops','IAD, LAX','566 kg CO2e','CA$2,120'],
+  ['9:00 AM – 2:45 PM','Air Canada','5 hr 45 min','YYZ–LTO','Nonstop','','395 kg CO2e','CA$1,900'],
+];
+document.getElementById('rows').innerHTML = ROWS.map(r => `
+  <div class="row">
+    <div>${r[0]}<br><span class="muted">${r[1]}</span></div>
+    <div>${r[2]}<br><span class="muted">${r[3]}</span></div>
+    <div>${r[4]}<br><span class="muted">${r[5]}</span></div>
+    <div class="muted">${r[6]}</div>
+    <div>${r[7]}<br><span class="muted">round trip</span></div>
+  </div>`).join('');
+
+// Minimal chrome shim — storage only, which is all the content script uses.
+window.chrome = {
+  storage: {
+    local: { get: (d, cb) => cb(d), set: () => {} },
+    onChanged: { addListener: () => {} },
+  },
+};
+
+</script>
+
+<script src="../../src/us-airports.js"></script>
+<script src="../../src/core.js"></script>
+<script src="../../src/sites.js"></script>
+<script>
+  DETOUR_SITE_GOOGLE.test = () => true;          // harness is not on google.com
+  DETOUR_SITE_GOOGLE.endpointsHint = () => ['YYZ', 'LTO'];
+</script>
+<script src="../../src/content.js"></script>
+<script>
+/* Two checks for the failure modes that only show up in a live DOM. Call them
+   from the console; each returns a plain pass/fail object.
+
+   detourCheckPress()  -- the toggle must survive a pass landing mid-press.
+     A click only fires when mouseup lands on the SAME element that received
+     mousedown. The badge used to be rebuilt wholesale on every pass, so any
+     pass during the ~100ms a person holds the button destroyed the element and
+     the browser produced no click at all -- which is why the button needed
+     pressing several times before anything happened.
+
+   detourCheckStarvation() -- passes must keep running while the page churns.
+     A plain trailing debounce is starvable: every mutation cleared the pending
+     timer, so a page mutating faster than the debounce never got a pass. Google
+     Flights polls prices constantly; this went 4+ seconds without a single pass.
+*/
+window.detourCheckPress = async function () {
+  const btn = document.querySelector('#detour-badge button');
+  if (!btn) return { pass: false, why: 'no toggle button — nothing was hidden' };
+  const before = document.querySelectorAll('.detour-hidden').length;
+  btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+  run(); run(); run();                                   // passes land mid-press
+  const survived = document.querySelector('#detour-badge button') === btn;
+  btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+  if (survived) btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  await new Promise((r) => setTimeout(r, 300));
+  const after = document.querySelectorAll('.detour-hidden').length;
+  return { pass: survived && after !== before, buttonSurvived: survived, before, after };
+};
+
+window.detourCheckStarvation = async function (ms = 4000) {
+  const churn = setInterval(() => {
+    const d = document.createElement('span');
+    document.getElementById('rows').appendChild(d);
+    d.remove();
+  }, 200);
+  const t0 = lastRunAt;
+  await new Promise((r) => setTimeout(r, ms));
+  clearInterval(churn);
+  const ran = lastRunAt > t0;
+  return { pass: ran, passesRanUnderChurn: ran, msSinceLastPass: Date.now() - lastRunAt };
+};
+
+console.log('harness ready — await detourCheckPress(), await detourCheckStarvation()');
+</script>
