@@ -13,12 +13,12 @@ refuses to package if they fail.
 
 **Name**
 ```
-detour — hide US layovers
+detour: hide US layovers
 ```
 
-**Short description** (132 char limit; this is 131)
+**Short description** / Summary (132 char limit; this is 110)
 ```
-Hides flight results connecting through the US or its territories. Filters what's already on your screen — no account, no tracking.
+Hides flight results that route through the US or its territories when you're on Google Flights. Safe travels!
 ```
 
 **Category** — Travel
