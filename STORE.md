@@ -16,9 +16,9 @@ refuses to package if they fail.
 detour — hide US layovers
 ```
 
-**Short description** (132 char limit; this is 119)
+**Short description** (132 char limit; this is 131)
 ```
-Hides flight results that connect through the US. Filters what's already on your screen — no account, no network calls.
+Hides flight results connecting through the US or its territories. Filters what's already on your screen — no account, no tracking.
 ```
 
 **Category** — Travel
