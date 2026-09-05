@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "detour \u2014 hide US layovers",
   "version": "1.0.0",
-  "description": "Hides flight itineraries that connect through the US or its territories. Filters the results already on your screen \u2014 no account, no network calls.",
+  "description": "Hides flight results that route through the US or its territories. Filters the results already on your screen. Safe travels!",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

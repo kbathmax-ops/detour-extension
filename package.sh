@@ -8,6 +8,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 node test/detect.test.mjs > /dev/null || { echo "tests failed — not packaging"; exit 1; }
+# Store field limits, checked here rather than discovered by the upload form.
+node test/validate-manifest.mjs || { echo "not packaging"; exit 1; }
 
 VERSION=$(node -p "require('./manifest.json').version")
 OUT="dist/detour-${VERSION}.zip"
