@@ -25,9 +25,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.google.com/travel/flights*",
-        "https://www.google.ca/travel/flights*",
-        "https://www.google.co.uk/travel/flights*"
+        "https://www.google.com/travel/*",
+        "https://www.google.ca/travel/*",
+        "https://www.google.co.uk/travel/*"
       ],
       "js": [
         "src/us-airports.js",

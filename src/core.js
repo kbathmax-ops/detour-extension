@@ -67,13 +67,23 @@ function detourEndpointsFromText(text) {
  * project's whole safety rule exists to avoid exactly that, so the code
  * sweep has to be narrowed to codes in a position that means "layover".
  *
- * Two positions qualify:
+ * Three positions qualify:
  *   a duration to the left on the same line -- "11 hr 11 min DFW"
  *   an explicit connection word              -- "via DFW", "Layover in DFW"
+ *   a line that is nothing but a code list   -- "ORD, PHX"
+ *
+ * That third form is not a nicety, it is the common case. Google prints the
+ * layover duration beside the code only on a ONE-stop row. From two stops up it
+ * drops the durations and prints the airports as a bare comma list in their own
+ * column, so innerText gives:
+ *   "2 stops\nORD, PHX"
+ * A rule that only looked for a duration read zero layovers off every multi-stop
+ * row on the page -- which is most of them -- and returned "unknown" for an
+ * itinerary routing through Chicago and Phoenix.
  *
  * Bounded to the LINE, never the whole row. innerText puts each field on its
  * own line, and the total trip duration sits directly above the route pair:
- *   "18 hr 30 min\nMEX–YVR"
+ *   "18 hr 30 min\nMEX-YVR"
  * An unbounded left-context would read that duration as introducing MEX and
  * book the origin airport as a layover.
  * ------------------------------------------------------------------ */
@@ -81,9 +91,20 @@ function detourEndpointsFromText(text) {
 const DETOUR_DURATION_RE = /\d+\s*(?:hr|hrs|h|min|mins|m)\b/i;
 const DETOUR_VIA_RE = /\b(?:via|layover(?: in)?|connects? in|connecting in|change (?:in|at)|stop in)\b/i;
 
+/** A line consisting only of airport codes: "ORD, PHX", "PVR, GDL, TIJ". */
+const DETOUR_CODE_LIST_LINE_RE = /^\s*[A-Z]{3}(?:\s*,\s*[A-Z]{3})*\s*,?\s*$/;
+/** Codes trailing the stop count on one line: "2 stops ORD, PHX". */
+const DETOUR_AFTER_STOPS_RE = /\bstops?\b[^A-Za-z\n]*([A-Z]{3}(?:\s*,\s*[A-Z]{3})*)/;
+
 function detourLayoverCodesIn(text) {
   const out = new Set();
   for (const line of String(text).split("\n")) {
+    if (DETOUR_CODE_LIST_LINE_RE.test(line)) {
+      for (const m of line.matchAll(CODE_RE)) out.add(m[0]);
+      continue;
+    }
+    const after = DETOUR_AFTER_STOPS_RE.exec(line);
+    if (after) for (const m of after[1].matchAll(CODE_RE)) out.add(m[0]);
     for (const m of line.matchAll(CODE_RE)) {
       const left = line.slice(0, m.index);
       if (DETOUR_DURATION_RE.test(left) || DETOUR_VIA_RE.test(left)) out.add(m[0]);
@@ -127,19 +148,24 @@ function detourJudgeRow(text, endpointsHint) {
     return { verdict: "unknown", reason: "no endpoints", layovers: [], usCodes: [], stops: null };
   }
 
+  const stops = detourStopCount(text);
+
+  // Checked before any code is looked at. A row that says "Nonstop" has no
+  // layover by definition, so nothing scraped off it can be one -- which is
+  // what lets the code-list rule above stay loose without risking a wrongly
+  // hidden nonstop.
+  if (stops === 0) return { verdict: "keep", layovers: [], usCodes: [], stops };
+
   const codes = detourLayoverCodesIn(text);
   for (const e of endpoints) codes.delete(e);
   for (const c of detourCurrencyCodesIn(text)) codes.delete(c);
 
   const layovers = [...codes];
   const usCodes = layovers.filter((c) => DETOUR_US_AIRPORTS.has(c));
-  const stops = detourStopCount(text);
 
   // A positively identified US layover settles the row on its own. Whether the
   // other stops were readable doesn't matter -- one is enough to hide.
   if (usCodes.length) return { verdict: "hide", layovers, usCodes, stops };
-
-  if (stops === 0) return { verdict: "keep", layovers, usCodes: [], stops };
 
   if (stops === null) {
     // No stop count to check against. Trust a row that named its connections;

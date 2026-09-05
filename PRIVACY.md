@@ -42,7 +42,12 @@ copied, or sent.
 
 The extension runs only on:
 
-- `https://www.google.com/travel/flights*` (and `.ca`, `.co.uk`)
+- `https://www.google.com/travel/*` (and `.ca`, `.co.uk`)
+
+Google Flights is a single-page app whose results live at `/travel/search` and
+`/travel/explore`, not `/travel/flights`, so the match has to cover `/travel/*`
+to see a results page at all. The extension only acts on flight routes; on any
+other `/travel/` page it does nothing and shows no badge.
 
 It does not run on any other site, and it has no permission to.
 

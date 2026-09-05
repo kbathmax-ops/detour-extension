@@ -9,7 +9,16 @@
 
 const DETOUR_STATE = { enabled: true, reveal: false, last: { scanned: 0, hidden: 0, unread: 0, usHits: [] } };
 
-const site = detourActiveSite();
+/* Re-resolved on every pass, never fixed at load.
+ *
+ * Google Flights is a single-page app: searching from the form moves
+ * /travel/flights -> /travel/search with no page load, and the map route moves
+ * between /travel/explore and /travel/search the same way. The manifest injects
+ * across /travel/*, so the script is present the whole time -- but resolving the
+ * site once at startup froze the answer to whichever route the tab happened to
+ * open on, and a tab that started anywhere outside a flight route stayed dead
+ * for its whole life however the user navigated afterwards. */
+let site = detourActiveSite();
 
 /* ---------------------------------------------------------------- *
  * Instance token — newest copy wins
@@ -29,7 +38,7 @@ const site = detourActiveSite();
 
 const DETOUR_INSTANCE_ATTR = "data-detour-instance";
 const DETOUR_INSTANCE = Math.random().toString(36).slice(2);
-if (site) document.documentElement.setAttribute(DETOUR_INSTANCE_ATTR, DETOUR_INSTANCE);
+document.documentElement.setAttribute(DETOUR_INSTANCE_ATTR, DETOUR_INSTANCE);
 
 function detourIsCurrentInstance() {
   return document.documentElement.getAttribute(DETOUR_INSTANCE_ATTR) === DETOUR_INSTANCE;
@@ -154,8 +163,18 @@ function publishState() {
  * ---------------------------------------------------------------- */
 
 function run() {
-  if (!site) return;
   if (!detourIsCurrentInstance()) return detourStandDown();
+
+  site = detourActiveSite();
+  if (!site) {
+    // On /travel/hotels or similar. Keep the observer running so navigating
+    // back into a flight route picks straight back up, but show no badge --
+    // "no results detected yet" on a hotels page is a false alarm.
+    removeBadge();
+    DETOUR_STATE.last = { scanned: 0, hidden: 0, unread: 0, usHits: [] };
+    return;
+  }
+
   try {
     DETOUR_STATE.last = detourApply(site, {
       enabled: DETOUR_STATE.enabled,
@@ -177,6 +196,10 @@ function detourStandDown() {
   clearTimeout(timer);
   // Leave the rows exactly as they are — the newer copy owns them now, and
   // un-hiding here would flash US layovers back onto the page.
+  removeBadge();
+}
+
+function removeBadge() {
   if (badgeEl && badgeEl.parentNode) badgeEl.remove();
   badgeEl = null;
 }
@@ -191,7 +214,7 @@ function schedule() {
  * Boot
  * ---------------------------------------------------------------- */
 
-if (site) {
+{
   chrome.storage?.local.get({ enabled: true }, (v) => {
     DETOUR_STATE.enabled = v.enabled !== false;
     run();

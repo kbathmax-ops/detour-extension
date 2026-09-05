@@ -77,11 +77,14 @@ most recent pass (rows scanned, hidden, unread, plus the airport codes shown on
 the badge) so the toolbar popup can display them. Nothing is transmitted.
 ```
 
-**Host permissions — google.com/travel/flights**
+**Host permissions — google.com/travel/\***
 ```
 The extension's entire function is to read and hide flight result rows on Google
-Flights. It runs content scripts only on its results pages and has no access to
-any other site.
+Flights. The match covers /travel/* because Google Flights is a single-page app
+whose results render at /travel/search and /travel/explore rather than at
+/travel/flights, so a narrower pattern never sees a page with results on it. The
+script takes no action on any other /travel/ page, and has no access to any
+other site.
 ```
 
 **Remote code** — none. All code ships in the package.

@@ -75,7 +75,15 @@ t('"via" form', m.detourLayoverCodesIn('1 stop via ATL').has('ATL'));
 t('"Layover in" form', m.detourLayoverCodesIn('Layover in ATL').has('ATL'));
 t('duration on the PREVIOUS line does not reach across',
   !m.detourLayoverCodesIn('18 hr 30 min\nMEX–YVR').has('MEX'));
-t('bare code with no context is not a layover', !m.detourLayoverCodesIn('Delta\nATL').has('ATL'));
+// A lone code on its own line DOES count: that is a one-stop row in the
+// code-list layout. The constraint carrying the weight is that the line must be
+// nothing else -- "LOT Polish Airlines" is a line with other words on it, so it
+// is still not a layover (asserted above), and a nonstop row short-circuits
+// before codes are read at all.
+t('a lone code on its own line counts (1-stop, code-list layout)',
+  m.detourLayoverCodesIn('1 stop\nATL').has('ATL'));
+t('a code inside a line of prose still does not count',
+  !m.detourLayoverCodesIn('Operated by ATL Regional partners').has('ATL'));
 
 /* ------------------------------------------------------------------ *
  * Reading one stop off a two-stop row proves nothing about the other
@@ -94,6 +102,43 @@ t(`2 stops, only 1 read -> unknown, not keep (${jPart.reason})`, jPart.verdict==
 
 t('1 stop, none read -> unknown',
   m.detourJudgeRow("6:00 AM – 11:00 PM\nAir Canada\n20 hr\nYYZ–DEL\n1 stop\n900 kg CO2e\n$1,300\nround trip",null).verdict==='unknown');
+
+
+/* ------------------------------------------------------------------ *
+ * The multi-stop layout: layovers as a bare code list
+ *
+ * Transcribed from a live YYZ-LTO search (dark theme, "Cheapest" tab) where the
+ * extension hid nothing. Google prints a layover duration beside the code only
+ * on a ONE-stop row. From two stops up it drops durations entirely and prints
+ * the airports as a bare comma list in their own column -- so every row here
+ * read as zero layovers under a duration-only rule, including three routing
+ * through ORD and PHX.
+ * ------------------------------------------------------------------ */
+console.log('\nLive YYZ-LTO page — 2+ stop rows list codes with no durations:');
+const lto = [
+  ['WestJet via YOW, YYC',      '11:35 PM – 2:20 PM+2\nWestJet\n40 hr 45 min\nYYZ–LTO\n2 stops\nYOW, YYC\n571 kg CO2e\n+24% emissions\nCA$648\nround trip', 'keep', []],
+  ['American via ORD, PHX',     '6:21 PM – 11:27 AM+1\nAmerican · Operated by Envoy Air as American Ea…\n19 hr 6 min\nYYZ–LTO\n2 stops\nORD, PHX\n420 kg CO2e\n-8% emissions\nCA$687\nround trip', 'hide', ['ORD','PHX']],
+  ['WestJet/Volaris 3 stops',   '7:20 AM – 1:55 PM+1\nSelf transfer · WestJet, Volaris\n32 hr 35 min\nYYZ–LTO\n3 stops\nPVR, GDL, TIJ\n501 kg CO2e\n+9% emissions\nCA$1,030\nround trip', 'keep', []],
+  ['Air Transat via PVR, TIJ',  '6:45 AM – 1:55 PM+1\nSelf transfer · Air Transat, Volaris\n33 hr 10 min\nYYZ–LTO\n2 stops\nPVR, TIJ\n460 kg CO2e\nAvg emissions\nCA$1,060\nround trip', 'keep', []],
+  ['Alaska via SEA, LAX',       '5:15 PM – 1:40 PM+1\nSeparate tickets booked together · Alaska · Opera…\n22 hr 25 min\nYYZ–LTO\n2 stops\nSEA, LAX\n629 kg CO2e\n+37% emissions\nCA$1,114\nround trip', 'hide', ['SEA','LAX']],
+  ['Air Canada via GDL, TIJ',   '5:35 PM – 1:55 PM+1\nSelf transfer · Air Canada, Volaris\n22 hr 20 min\nYYZ–LTO\n2 stops\nGDL, TIJ\n507 kg CO2e\n+10% emissions\nCA$1,203\nround trip', 'keep', []],
+  ['United via IAD, LAX',       '7:44 PM – 1:40 PM+1\nUnited, Alaska · Operated by Republic Airways DB…\n19 hr 56 min\nYYZ–LTO\n2 stops\nIAD, LAX\n566 kg CO2e\n+23% emissions\nCA$2,120\nround trip', 'hide', ['IAD','LAX']],
+];
+for (const [n, text, want, us] of lto) {
+  t(n + ' detected', m.detourLooksLikeResult(fake(text)));
+  const j = m.detourJudgeRow(text, null);
+  t(`${n} -> ${j.verdict} ${JSON.stringify(j.usCodes)}`,
+    j.verdict === want && JSON.stringify(j.usCodes.sort()) === JSON.stringify([...us].sort()));
+}
+t('CA$ prices are detected as prices', m.detourLooksLikeResult(fake(lto[0][1])));
+
+console.log('\nCode-list forms:');
+t('own line, two codes',   m.detourLayoverCodesIn('2 stops\nORD, PHX').has('PHX'));
+t('own line, three codes', m.detourLayoverCodesIn('3 stops\nPVR, GDL, TIJ').size === 3);
+t('same line as the count', m.detourLayoverCodesIn('2 stops ORD, PHX').has('ORD'));
+t('route pair line is not a code list', !m.detourLayoverCodesIn('YYZ–LTO').size);
+t('a nonstop row is never hidden by a scraped code',
+  m.detourJudgeRow('9:00 AM – 2:00 PM\nAir Canada\n5 hr\nYYZ–LAX\nNonstop\nORD\n$400\nround trip', null).verdict === 'keep');
 
 console.log('\nStop counting:');
 t('"Nonstop" -> 0', m.detourStopCount('Nonstop')===0);

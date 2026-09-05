@@ -89,6 +89,26 @@ avoided by matching **all-caps** tokens only, since prose renders "day"/"new".
 
 ## Status
 
+**Three bugs found from a live YYZ→LTO screenshot** (map/Explore route, dark
+theme) where the badge never appeared and nothing was hidden. All three are
+fixed and covered by tests:
+
+1. **The content script never loaded.** Results do not live at
+   `/travel/flights` — that path is only the search form. Searching moves to
+   `/travel/search`, and the map route sits at `/travel/explore`. The manifest
+   matched `/travel/flights*` alone, so reaching results any way other than
+   typing into that one form left the extension entirely absent. Now matches
+   `/travel/*`, with `sites.js` deciding what is a flight route.
+2. **The site was resolved once at load.** Google Flights is a single-page app,
+   so a tab that opened outside a flight route stayed dead for its whole life
+   however the user navigated afterwards. Now re-resolved on every pass.
+3. **Multi-stop rows read as zero layovers.** Google prints a layover duration
+   beside the code only on a *one*-stop row; from two stops up it drops the
+   durations and prints a bare comma list in its own column (`ORD, PHX`). The
+   layover-position rule only looked for durations, so every multi-stop row on
+   the page — most of them — came back `unknown`, including three routing
+   through ORD and PHX. A code-list line now counts as a layover position.
+
 **Google Flights — verified end to end.** Tested against live results on
 YYZ→LIM: 22 rows judged, 9 hidden via DTW, ATL, CLT, MIA and EWR, zero false
 positives, and the reveal toggle cycles 9 → 0 → 9 with stable counts.
