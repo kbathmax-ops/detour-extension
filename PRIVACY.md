@@ -1,6 +1,6 @@
 # Privacy policy — detour
 
-**Last updated: 1 September 2026**
+**Last updated: 5 September 2026**
 
 detour collects nothing, sends nothing, and stores nothing about you.
 
