@@ -7,19 +7,23 @@
 /* ------------------------------------------------------------------ *
  * Badge
  *
- * A light pill, deliberately. The badge has to read as *not part of the
- * page* on two backgrounds it cannot predict: Google Flights ships both a
- * light and a dark theme, and the user can switch either at any time.
+ * Solid brand indigo, near-square, monospace.
  *
- * A dark badge (what this was) disappears into the dark theme. A light one
- * pops against dark, and against light it is held apart by three things that
- * don't depend on the surface color at all: a hairline border, a real drop
- * shadow, and a saturated status dot. So one treatment covers both themes
- * instead of two that each fail on the other.
+ * The badge has to read as *not part of the page* on two backgrounds it cannot
+ * predict: Google Flights ships both a light and a dark theme and the user can
+ * switch either at any time. Indigo works on both for a different reason than a
+ * light pill did -- it is a saturated hue rather than a lightness step, so it
+ * separates from near-black (#202124) and from white alike, where a mid-grey
+ * would disappear into one or the other. The hairline and the shadow hold the
+ * edge on the dark theme, where indigo-on-charcoal is the narrower contrast.
  *
- * Every color is stated explicitly -- no transparent surfaces, no inherited
- * text color. The host page's stylesheet is the thing we're trying to stand
- * apart from, so inheriting anything from it defeats the point.
+ * Monospace is not decoration. Most of what this badge says is airport codes,
+ * and in a proportional face "ORD, PHX" is a word; in a mono face it is data,
+ * with the columns and the interpunct spacing that implies.
+ *
+ * Every colour is stated explicitly -- no transparent surfaces, no inherited
+ * text colour. The host page's stylesheet is the thing we're standing apart
+ * from, so inheriting anything from it defeats the point.
  * ------------------------------------------------------------------ */
 
 #detour-badge {
@@ -30,19 +34,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: min(420px, calc(100vw - 32px));
-  padding: 9px 10px 9px 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(27, 23, 16, 0.22);
-  /* Warm rather than pure white: on a white results page a #fff pill has no
-     edge of its own and leans entirely on the border. A few degrees of warmth
-     reads as a distinct surface while staying bright against the dark theme. */
-  background: #f7f2e6;
-  color: #1b1710;
-  font: 600 13px/1.25 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 10px 11px 10px 14px;
+  /* Near-square. A pill reads as a chip or a toast, something dismissible; the
+     squarer corner reads as a readout, which is what this is. */
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #2e246b;
+  color: #ffffff;
+  font: 500 13px/1.3 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   /* Two shadows: a tight one that draws the edge on a light page, and a wide
      soft one that lifts it off a dark page. */
-  box-shadow: 0 1px 3px rgba(27, 23, 16, 0.22), 0 10px 30px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 1px 3px rgba(27, 23, 16, 0.28), 0 10px 30px rgba(0, 0, 0, 0.3);
   pointer-events: auto;
   /* The host page sets neither of these on a foreign element, but its resets
      might, and a stray text-transform would mangle the airport codes. */
@@ -51,76 +54,81 @@
 }
 
 #detour-badge .detour-text {
-  color: #1b1710;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* The count. Brand blue rather than bold-only, so the number is findable at a
-   glance without the whole line shouting. */
+/* The count. Bold white against the lighter secondary text -- in a monospace
+   face weight separates more cleanly than colour does. */
 #detour-badge b {
-  color: #2e246b;
-  font-weight: 800;
+  color: #ffffff;
+  font-weight: 700;
 }
 
-/* Secondary clause -- "via ATL, MIA" and the unread count. Muted, but still
-   4.6:1 on the badge surface. */
+/* Secondary clauses: "· via ORD, PHX" and the unread count. Held back, but
+   still ~7:1 on the indigo. */
 #detour-badge .detour-sub {
-  color: #6d654f;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.66);
+  font-weight: 500;
 }
 
 /* ---- status dot ---------------------------------------------------- *
- * Saturated rather than pastel: these now sit on a light surface, where the
- * old pastels (#7fe6a0, #e2c391) washed out to near-invisible.
+ * The mock shows this white. Colour is kept because the dot is the only part
+ * of the badge readable at a glance without reading it -- green meaning
+ * "checked, nothing hidden" and orange meaning "flights were removed" are
+ * different enough to be worth a hue. These are lifted for a dark ground; the
+ * previous saturated set was mixed for a light one and goes muddy here.
  * -------------------------------------------------------------------- */
 #detour-badge .detour-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: none;
-  background: #15803d;
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.16);
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.2);
 }
 #detour-badge.detour-off .detour-dot {
-  background: #8a8a80;
-  box-shadow: 0 0 0 3px rgba(138, 138, 128, 0.16);
+  background: #a1a1aa;
+  box-shadow: 0 0 0 3px rgba(161, 161, 170, 0.2);
 }
 #detour-badge.detour-idle .detour-dot {
-  background: #a16207;
-  box-shadow: 0 0 0 3px rgba(161, 98, 7, 0.16);
+  background: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
 }
 #detour-badge.detour-active .detour-dot {
-  background: #c2410c;
-  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.16);
+  background: #fb923c;
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.2);
 }
 
-/* ---- action -------------------------------------------------------- */
+/* ---- action -------------------------------------------------------- *
+ * Inverted: cream on indigo. On a solid indigo badge an indigo button would
+ * vanish, and a white-outlined ghost button would compete with the hairline.
+ * -------------------------------------------------------------------- */
 #detour-badge button {
   flex: none;
   margin: 0;
   border: 0;
-  background: #2e246b;
-  color: #ffffff;
-  border-radius: 999px;
-  padding: 5px 12px;
+  background: #f2ecdd;
+  color: #2e246b;
+  border-radius: 3px;
+  padding: 5px 10px;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.3;
   cursor: pointer;
 }
 #detour-badge button:hover {
-  background: #3a2e86;
+  background: #ffffff;
 }
 #detour-badge button:focus-visible {
-  outline: 2px solid #2e246b;
+  outline: 2px solid #f2ecdd;
   outline-offset: 2px;
 }
 
-/* Respect a user who has asked for less contrast machinery, and stay legible
-   if the host page forces its own colors. */
+/* Stay legible if the host page or the OS forces its own colours. */
 @media (forced-colors: active) {
   #detour-badge {
     border: 1px solid CanvasText;
